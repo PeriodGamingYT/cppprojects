@@ -21,6 +21,8 @@ class Path {
 		vector<v2> data;
 		string name;
 		char symbol;
+        int r, g, b;
+        char pchar;        
 		void addData(v2 a) {
 			data.resize(data.size()+1);
 			data[data.size()-1] = a;
