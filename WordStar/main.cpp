@@ -57,7 +57,6 @@ int main() {
 				scol--;
 			}
 		} else if(c == ctrl('s')) {
-			write(argv[1], lines);
 			return 0;
 		} else {
 			string s = " ";
