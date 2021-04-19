@@ -7,7 +7,8 @@
 using namespace std;
 
 int main() {
-  string name = "test";
+  string name;
+  cin >> name;
   Rhythm r = makeRhythm(read(name));
   int time = 0;
   int score = 0;
