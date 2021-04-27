@@ -11,8 +11,6 @@ void gtstatus() {
     cout << "\x1b[K";
 }
 
-#define TOSTR(s) #s
-
 int min(int a, int b) {return b < a ? a : b;}
 int max(int a, int b) {return b > a ? b : a;}
 int mn(int a, int b) {return b < a ? b : a;}
