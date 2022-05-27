@@ -547,7 +547,7 @@ int main() {
   vec3 look_from(1.0, 1.0, 1.0);
   vec3 look_at(0, 0, -1);
   float dist_to_focus = (look_from - look_at).length();
-  float aperture = 20.0;
+  float aperture = 0.1;
   camera cam(
     look_from,
     look_at, 
