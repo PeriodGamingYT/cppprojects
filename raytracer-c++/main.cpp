@@ -279,23 +279,61 @@ bool hitable_list::hit(
   return hit_anything;
 }
 
+vec3 random_in_unit_disk() {
+  vec3 p;
+  do {
+    p = 2.0 * vec3(drand48(), drand48(), 0) - vec3(1.0, 1.0, 0);
+  } while(dot(p, p) >= 1.0);
+  return p;
+}
+
 class camera {
   public:
-    camera() {
-      lower_left_corner = vec3(-2.0, -1.0, -1.0);
-      horizontal = vec3(4.0, 0.0, 0.0);
-      vertical = vec3(0.0, 2.0, 0.0);
-      origin = vec3(0.0, 0.0, 0.0);
+    camera(
+      vec3 look_from,
+      vec3 look_at,
+      vec3 vup,
+      float vfov, 
+      float aspect,
+      float aperture,
+      float focus_dist
+    ) {
+      lens_radius = aperture / 2.0;
+      float theta = vfov * M_PI / 180.0;
+      float half_height = tan(theta / 2.0);
+      float half_width = aspect * half_height;
+      origin = look_from;
+      w = unit_vector(look_from - look_at);
+      u = unit_vector(cross(vup, w));
+      v = cross(w, u);
+      lower_left_corner = 
+        origin - 
+        half_width * focus_dist * u - 
+        half_height * focus_dist * v - 
+        focus_dist * w;
+      
+      horizontal = 2.0 * half_width * focus_dist * u;
+      vertical = 2.0 * half_height * focus_dist * v;
     }
 
-    ray get_ray(float u, float v) {
-      return ray(origin, lower_left_corner + u * horizontal + v * vertical);
+    ray get_ray(float s, float t) {
+    vec3 rd = lens_radius * random_in_unit_disk();
+    vec3 offset = u * rd.x() + v * rd.y();
+      return ray(
+         origin + offset, 
+         lower_left_corner + 
+         s * horizontal + 
+         t * vertical - 
+         origin - offset
+        );
     }
 
+    vec3 origin;
     vec3 lower_left_corner;
     vec3 horizontal;
     vec3 vertical;
-    vec3 origin;
+    vec3 u, v, w;
+    float lens_radius;
 };
 
 vec3 random_in_unit_sphere() {
@@ -408,7 +446,7 @@ class dielectric : public material {
       vec3 outward_normal;
       vec3 reflected = reflect(r_in.direction(), rec.normal);
       float ni_over_nt;
-      attenuation = vec3(1.0, 1.0, 0.0);
+      attenuation = vec3(1.0, 1.0, 1.0);
       vec3 refracted;
       float reflect_prob;
       float cosine;
@@ -458,19 +496,68 @@ vec3 color(const ray& r, hitable *world, int depth) {
   return (1.0 - t) * vec3(1.0, 1.0, 1.0) + t * vec3(0.5, 0.7, 1.0);
 }
 
+hitable *random_scene() {
+  int n = 500;
+  hitable **list = new hitable*[n + 1];
+  list[0] = new sphere(vec3(0, -1000, 0), 1000, new lambertian(vec3(0.5, 0.5, 0.5)));
+  int i = 1;
+  for(int a = -11; a < 11; a++) {
+    for(int b = -11; b < 11; b++) {
+      float choose_mat = drand48();
+      vec3 center(a + 0.9 * drand48(), 0.2, b + 0.9 * drand48());
+      if((center - vec3(4.0, 0.2, 0.0)).length() > 0.9) {
+        if(choose_mat <= 0.8) { // Diffuse.
+          list[i++] = new sphere(center, 0.2, new lambertian(vec3(
+            drand48() * drand48(),
+            drand48() * drand48(),
+            drand48() * drand48()
+          )));
+        }
+
+        if(choose_mat > 0.8 && choose_mat < 0.95) { //  Metal.
+          list[i++] = new sphere(
+            center, 0.2,
+            new metal(vec3(
+                0.5 * (1 + drand48()),
+                0.5 * (1 + drand48()),
+                0.5 * (1 + drand48())
+            ), 0.5 * drand48())
+          );
+        }
+
+        if(choose_mat >= 0.95) {
+          list[i++] = new sphere(center, 0.2, new dielectric(1.5));
+        }
+      }
+    }
+  }
+
+  list[i++] = new sphere(vec3(0.0, 1.0, 0.0), 1.0, new dielectric(1.5));
+  list[i++] = new sphere(vec3(-4.0, 1.0, 0.0), 1.0, new lambertian(vec3(0.4, 0.2, 0.1)));
+  list[i++] = new sphere(vec3(4.0, 1.0, 0.0), 1.0, new metal(vec3(0.7, 0.6, 0.5), 0.0f));
+  return new hitable_list(list, i);
+}
+
 int main() {
   int nx = 200;
   int ny = 100;
   int ns = 100;
   std::cout << "P3\n" << nx << " " << ny << "\n255\n";
-  hitable *list[5];
-  list[0] = new sphere(vec3(0, 0, -1), 0.5, new lambertian(vec3(0.1, 0.2, 0.5)));
-  list[1] = new sphere(vec3(0, -100.5, -1), 100, new lambertian(vec3(0.8, 0.8, 0.0)));
-  list[2] = new sphere(vec3(1, 0, -1), 0.5, new metal(vec3(0.8, 0.6, 0.2), 0));
-  list[3] = new sphere(vec3(-1, 0, -1), 0.5, new dielectric(1.5));
-  list[4] = new sphere(vec3(-1, 0, -1), 0.45, new dielectric(1.5));
-  hitable *world = new hitable_list(list, 5);
-  camera cam;
+  hitable *world = random_scene();
+  vec3 look_from(1.0, 1.0, 1.0);
+  vec3 look_at(0, 0, -1);
+  float dist_to_focus = (look_from - look_at).length();
+  float aperture = 20.0;
+  camera cam(
+    look_from,
+    look_at, 
+    vec3(0, 1, 0), 
+    90, 
+    float(nx) / float(ny),
+    aperture,
+    dist_to_focus
+  );
+  
   for(int j = ny - 1; j >= 0; j--) {
     for(int i = 0; i < nx; i++) {
       vec3 col(0.0, 0.0, 0.0);
