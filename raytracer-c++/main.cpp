@@ -317,8 +317,8 @@ class camera {
     }
 
     ray get_ray(float s, float t) {
-    vec3 rd = lens_radius * random_in_unit_disk();
-    vec3 offset = u * rd.x() + v * rd.y();
+      vec3 rd = lens_radius * random_in_unit_disk();
+      vec3 offset = u * rd.x() + v * rd.y();
       return ray(
          origin + offset, 
          lower_left_corner + 

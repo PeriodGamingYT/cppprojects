@@ -1,10 +1,9 @@
 make: main.cpp
 	g++ main.cpp -o main
-	rm out.ppm
 	./main > out.ppm
 
-clean: main
-	rm main
+clean: main out.ppm
+	rm -f main out.ppm
 
 view: out.ppm
 	gimp ./out.ppm

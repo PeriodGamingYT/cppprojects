@@ -2,12 +2,10 @@
 #include <vector>
 #include <string>
 #include <fstream>
+#include <algorithm>
 #include "getch.h"
-
 #define ctrl(c) ((c) & 0x1f)
-
 using namespace std;
-
 void clear() {
 	cout << "\x1b[0;0f";
 	cout << "\x1b[2J";
@@ -24,7 +22,7 @@ string showPrompt(string prompt) {
 }
 
 void saveFile(string fileName, vector<string> lines) {
-	std::ofstream file(fileName, std::ofstream::trunc);
+	ofstream file(fileName, std::ofstream::trunc);
 	if(!file) {
 		cout << "Error creating file.\n";
 		return;
@@ -37,44 +35,63 @@ void saveFile(string fileName, vector<string> lines) {
 	file.close();
 }
 
-int main(char **argv, int argc) {
-	if(argc == 1) return -1;
+vector<string> openFile(string fileName) {
+  vector<string> result(1);
+  result[0] = "";
+  ifstream file(fileName);
+  if(file) {
+    result.pop_back();
+    string strip;
+    while(!file.eof()) {
+      getline(file, strip);
+      result.push_back(strip);
+    }
+  }
+  file.close();
+  return result;
+}
+
+int main(int argc, char **argv) {
 	// Document data.
-	vector<string> lines(1);
+	vector<string> lines;
 	int srow = 0;
 	int scol = 0;
-
+	if(argc == 2) {
+	  cout << argc << " " << argv[0] << endl;
+	  lines = openFile(argv[1]);
+	  srow = max(0, (int)(lines.size() - 1));
+	  scol = max(0, (int)(lines[srow].size() - 1));
+	} else {
+	  lines = vector<string>(1);
+ 	  lines[0] = "";
+	}
 	// Editing.
 	while(1) {
 		// Show editor output.
 		clear();
-		for(string i : lines) cout << i << endl;
+		for(int i = 0; i < (int)lines.size(); i++)
+		  cout << lines[i] << (i >= (int)lines.size() - 1 ? "" : "\n");
 		// Handling Input.
+		// « used to be cursor.
 		int c = getch();
-		if(c == '\r') {
+		if(c == '\r') { // Enter ASCII = '\r'.
 			scol = 0;
 			srow++;
-			lines.resize(lines.size()+1);
-		} else if(c == 127) {
-			if(scol-1 < 0) {
+			lines.push_back("");
+		} else if(c == 127) { // Backspace ASCII = 127.
+			if(lines[srow].size() <= 0) {
 				scol = 0;
-				if(srow > 0) {
-					srow--;
-					lines.erase(lines.begin()+srow+1);
+				if(lines.size() > 1) {
+				  srow--;
+					lines.erase(lines.end());
+					srow = lines.size() - 1;
 				} else {
 					srow = 0;
 					scol = 0;
 				}
 			} else {
-				string s = "";
-				for(int i = 0; i < lines[srow].length(); i++)
-					if(i != scol-1) {
-						string o = " ";
-						o[0] = lines[srow][i];
-						s.append(o);
-					}
-				lines[srow] = s;
-				scol--;
+			  scol--;
+				lines[srow].erase(lines[srow].size() - 1);
 			}
 		} else if(c == ctrl('s')) {
 			string fileName = showPrompt("Save file with name: ");
@@ -88,7 +105,7 @@ int main(char **argv, int argc) {
 		} else {
 			string s = " ";
 			s[0] = c;
-			lines[srow].append(s);
+      lines[srow].append(s);
 			scol++;
 		}
 	}

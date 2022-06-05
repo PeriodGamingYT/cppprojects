@@ -1,7 +1,7 @@
 make:
 	clear
 	g++ main.cpp -o main
-	./main
+	./main m
 
 clean:
 	rm main
