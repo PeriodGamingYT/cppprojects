@@ -1,5 +1,5 @@
 make: main.c
-	gcc -o main main.c
+	gcc -o main main.c -fopenmp -lm
 	./main
 
 dump: test.ppm

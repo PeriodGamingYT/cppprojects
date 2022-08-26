@@ -1,5 +1,7 @@
 #define WIDTH_AND_HEIGHT 100, 100
 #define FILE_START "P6 100 100 255\n"
+#define M_PI 3.1415926535
+#define M_ONE_PI 0.318309886193
 
 // HIT() is for debugging.
 #define HIT() printf("hit\n");
@@ -17,6 +19,10 @@
 #include <stdio.h> // For file management.
 #include <string.h> // For strcat().
 #include <math.h> // For path tracing.
+
+double erand48(unsigned short xsubi[3]) {
+  return (double)rand() / (double)RAND_MAX;
+}
 
 // Section pixmap.
 #define RGB_LENGTH 3
@@ -248,7 +254,7 @@ double sphere_intersect(
 // }
 
 // Section path tracing.
-inline double clamp(double x) {
+double clamp(double x) {
   return
     x < 0
     ? 0
@@ -257,7 +263,7 @@ inline double clamp(double x) {
       : x;
 }
 
-inline int to_int(double x) {
+int to_int(double x) {
   return (int)(
     pow(
       clamp(x),
@@ -266,7 +272,7 @@ inline int to_int(double x) {
   );
 }
 
-inline int instersect(
+int instersect(
   const struct ray r,
   double t,
   int *id,
@@ -286,6 +292,27 @@ inline int instersect(
   }
 
   return t < inf;
+}
+
+struct vector3 radiance(
+  struct ray ray,
+  int depth,
+  unsigned short xi[3],
+  struct sphere *spheres,
+  int E
+) {
+  double t;
+  int *id = 0;
+  if(!instersect(ray, t, id, spheres)) {
+    return vector3_create(0, 0, 0);
+  }
+
+  struct sphere hit_object = spheres[*id];
+  if(depth > 10) {
+    return vector3_create(0, 0, 0);
+  }
+
+
 }
 
 // Section main.
@@ -336,8 +363,108 @@ int main(
   VECTOR3_MATH_ASSIGN(camera_y, vector3_create(.5135, .5135, .5135), *)
   struct vector3 r;
   struct pixmap current_pixmap;
-  // Then create image.
   pixmap_setup(WIDTH_AND_HEIGHT, &current_pixmap);
+
+  #pragma omp parallel for schedule(dynamic, 1) private(r)
+  for(int y = 0; y < height; y++) {
+    unsigned short Xi[3] = {
+      0,
+      0,
+      y * y * y
+    };
+
+    for(unsigned short x = 0; x < width; x++) {
+      for(
+        int subpixel_y = 0,
+        i = (height - y - 1) * width + x;
+        subpixel_y < 2;
+        subpixel_y++
+      ) {
+        for(
+          int subpixel_x = 0;
+          subpixel_x < 2;
+          subpixel_x++,
+          r = vector3_create(0, 0, 0)
+        ) {
+          for(
+            int sample = 0; 
+            sample < samples; 
+            sample++
+          ) {
+            double r1 = 
+              2 * erand48(Xi),
+              dx = r1 < 1
+              ? sqrt(r1) - 1
+              : 1 - sqrt(2 - r1);
+            
+            double r2 = 
+              2 * erand48(Xi),
+              dy = r2 < 1
+              ? sqrt(r2) - 1
+              : 1 - sqrt(2 - r2);
+            
+            struct vector3 d = vector3_create(0, 0, 0);
+            double temp = (
+              (
+                (
+                  subpixel_x + .5 + dx
+                ) / 2 + x
+              ) / width + .5
+            );
+
+            VECTOR3_MATH(
+              camera_x, 
+              vector3_create(temp, temp, temp), 
+              d, 
+              *
+            )
+
+            temp = (
+              (
+                (
+                  subpixel_y + .5 + dy
+                ) / 2 + y
+              ) / height + .5
+            );
+
+            struct vector3 temp_0 = vector3_create(0, 0, 0);
+            VECTOR3_MATH(
+              camera_y, 
+              vector3_create(temp, temp, temp), 
+              temp_0,
+              +
+            )
+
+            VECTOR3_MATH_ASSIGN(d, temp_0, +=)
+            VECTOR3_MATH_ASSIGN(d, camera.direction, +=)
+            VECTOR3_MATH(camera.origin, d, temp_0, +)
+            VECTOR3_MATH_ASSIGN(
+              temp_0, 
+              vector3_create(140, 140, 140), 
+              *=
+            )
+
+            VECTOR3_MATH(r, radiance(
+              ray_create(
+                temp_0,
+                vector3_normalize(d)
+              ),
+              0,
+              Xi,
+              spheres,
+              1
+            ), r, +)
+          }
+
+          int index = i * 3;
+          current_pixmap.data[index] += clamp(r.x) * .25;
+          current_pixmap.data[index + 1] += clamp(r.y) * .25;
+          current_pixmap.data[index + 2] += clamp(r.z) * .25;
+        }
+      }
+    }
+  }
+
   pixmap_output("test.ppm", &current_pixmap);
   return 0;
 }
