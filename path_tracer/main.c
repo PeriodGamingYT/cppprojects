@@ -274,24 +274,25 @@ int to_int(double x) {
 
 int instersect(
   const struct ray r,
-  double t,
+  double *t,
   int *id,
   struct sphere *spheres
 ) {
   double n = sizeof(spheres) / sizeof(struct sphere*);
   double d;
-  double inf = t = 1e20;
+  *t = 1e20;
+  double inf = *t;
   for(int i = (int)n; i--;) {
     if(
       (d = sphere_intersect(spheres[i], r)) &&
-      d < t
+      d < *t
     ) {
-      t = d;
+      *t = d;
       *id = i;
     }
   }
 
-  return t < inf;
+  return *t < inf;
 }
 
 struct vector3 radiance(
@@ -302,17 +303,183 @@ struct vector3 radiance(
   int E
 ) {
   double t;
-  int *id = 0;
-  if(!instersect(ray, t, id, spheres)) {
+  int id = 0;
+  if(!instersect(ray, &t, &id, spheres)) {
     return vector3_create(0, 0, 0);
   }
 
-  struct sphere hit_object = spheres[*id];
+  struct sphere hit_object = spheres[id];
   if(depth > 10) {
     return vector3_create(0, 0, 0);
   }
 
+  struct vector3 x = ray.origin;
+  VECTOR3_MATH_ASSIGN(x, ray.direction, +=)
+  VECTOR3_MATH_ASSIGN(x, vector3_create(t, t, t), *=)
+  struct vector3 n = vector3_create(0, 0, 0);
+  VECTOR3_MATH(x, hit_object.position, n, -)
+  n = vector3_normalize(n);
+  struct vector3 nl = n;
+  if(vector3_dot(
+    ray.direction, 
+    ray.direction
+  ) < 0) {
+    VECTOR3_MATH_ASSIGN(nl, vector3_create(-1, -1, -1), *=)
+  }
+  
+  struct vector3 f = hit_object.color;
+  double p =
+    f.x > f.y &&
+    f.z > f.z 
+      ? f.x
+      : f.y > f.z
+        ? f.y
+        : f.z;
+  
+  if(
+    (
+      ++depth < 5 &&
+      p
+    ) ||
 
+    erand48(xi) > p
+  ) {
+    struct vector3 result = hit_object.emission;
+    VECTOR3_MATH_ASSIGN(result, vector3_create(E, E, E), *=)
+    return result;
+  }
+
+  double temp = 1 / p;
+  VECTOR3_MATH_ASSIGN(f, vector3_create(temp, temp, temp), *=)
+  int spheresLength = sizeof(spheres) / sizeof(struct sphere);
+  if(hit_object.reflection == DIFFUSE) {
+    double r1 = 2 * M_PI * erand48(xi);
+    double r2 = erand48(xi);
+    double r2s = sqrt(r2);
+    struct vector3 w = nl;
+    struct vector3 u = fabs(w.x) > .1
+      ? vector3_create(0, 1, 0)
+      : vector3_create(1, 0, 0);
+
+    u = vector3_normalize(vector3_cross(u, w));
+    struct vector3 v = vector3_cross(w, u);
+    struct vector3 e;
+    for(int i = 0; i < spheresLength; i++) {
+      struct sphere s = spheres[i];
+      if(
+        s.emission.x <= 0 &&
+        s.emission.y <= 0 &&
+        s.emission.z <= 0
+      ) {
+        continue;
+      }
+
+      struct vector3 sw = vector3_create(0, 0, 0);
+      VECTOR3_MATH(s.position, x, sw, -)
+      struct vector3 su = 
+        fabs(sw.x) > .1
+          ? vector3_create(0, 1, 0)
+          : vector3_create(1, 0, 0);
+
+      u = vector3_normalize(vector3_cross(su, sw));
+      struct vector3 sv = vector3_cross(sw, su);
+      struct vector3 temp_0 = vector3_create(0, 0, 0);
+      VECTOR3_MATH(x, s.position, temp_0, -)
+      double cos_a_max = sqrt(
+        1 - 
+        s.radius * 
+        s.radius / 
+        vector3_dot(
+          temp_0,
+          temp_0
+        )
+      );
+
+      double eps1 = erand48(xi);
+      double eps2 = erand48(xi);
+      double cos_a = 1 - eps1 + eps1 * cos_a_max;
+      double sin_a = sqrt(1 - cos_a * cos_a);
+      double phi = 2 * M_PI * eps2;
+      struct vector3 temp_1 = su;
+      temp = cos(phi) * sin_a;
+      VECTOR3_MATH_ASSIGN(temp_1, vector3_create(temp, temp, temp), *=)
+      struct vector3 temp_2 = sv;
+      temp = sin(phi) * sin_a;
+      VECTOR3_MATH_ASSIGN(temp_2, vector3_create(temp, temp, temp), *=)
+      struct vector3 temp_3 = sw;
+      temp = cos_a;
+      VECTOR3_MATH_ASSIGN(temp_3, vector3_create(temp, temp, temp), *=)
+      struct vector3 l;
+      VECTOR3_MATH_ASSIGN(l, temp_1, +=)
+      VECTOR3_MATH_ASSIGN(l, temp_2, +=)
+      VECTOR3_MATH_ASSIGN(l, temp_3, +=)
+      l = vector3_normalize(l);
+      if(
+        instersect(
+          ray_create(
+            x, 
+            l
+          ), 
+          
+          &t, 
+          &id, 
+          spheres
+        ) && 
+        id == i
+      ) {
+        double omega = 2 * M_PI * (1 - cos_a_max);
+        struct vector3 temp_4 = s.emission;
+        temp = vector3_dot(l, nl) * omega;
+        VECTOR3_MATH_ASSIGN(temp_4, vector3_create(temp, temp, temp), *=)
+        temp = M_ONE_PI;
+        VECTOR3_MATH_ASSIGN(temp_4, vector3_create(temp, temp, temp), *=)
+        VECTOR3_MATH_ASSIGN(e, temp_4, +=)
+      }
+
+      struct vector3 result = hit_object.emission;
+      VECTOR3_MATH_ASSIGN(result, vector3_create(E, E, E), *=)
+      VECTOR3_MATH_ASSIGN(result, e, +=)
+      temp_0 = radiance(
+        ray_create(
+          x, 
+          l
+        ), 
+
+        depth, 
+        xi, 
+        spheres, 
+        0
+      );
+
+      VECTOR3_MATH_ASSIGN(f, temp_0, *=)
+      VECTOR3_MATH_ASSIGN(result, f, +=)
+      return result;
+    }
+  }
+
+  if(hit_object.reflection == SPECULAR) {
+    // obj.e + f.mult(radiance(Ray(x,r.d-n*2*n.dot(r.d)), depth, xi))
+    struct vector3 result = hit_object.emission;
+    temp = vector3_dot(n, ray.direction);
+    struct vector3 temp_0 = ray.direction;
+    VECTOR3_MATH_ASSIGN(temp_0, n, -=)
+    VECTOR3_MATH_ASSIGN(temp_0, vector3_create(2, 2, 2), *=)
+    VECTOR3_MATH_ASSIGN(temp_0, vector3_create(temp, temp, temp), *=)
+    struct vector3 temp_1 = radiance(
+      ray_create(x, temp_0),
+      depth,
+      xi,
+      spheres,
+      0
+    );
+
+    VECTOR3_MATH_ASSIGN(result, temp_1, +=)
+    return result;
+  }
+
+  if(hit_object.reflection == REFRACTION) {
+
+  }
 }
 
 // Section main.
