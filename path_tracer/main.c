@@ -478,7 +478,149 @@ struct vector3 radiance(
   }
 
   if(hit_object.reflection == REFRACTION) {
+    struct vector3 temp_0 = ray.direction;
+    temp = vector3_dot(n, ray.direction);
+    VECTOR3_MATH_ASSIGN(temp_0, n, -=)
+    VECTOR3_MATH_ASSIGN(temp_0, vector3_create(2, 2, 2), *=)
+    VECTOR3_MATH_ASSIGN(temp_0, vector3_create(temp, temp, temp), *=)
+    struct ray reflection_ray = ray_create(x, temp_0);
+    int into = vector3_dot(nl, nl) > 0;
+    double nc = 1;
+    double nt = 1.5;
+    double nnt = into
+      ? nc / nt
+      : nt / nc;
 
+    double ddn = vector3_dot(ray.direction, nl);
+    double cos2t;
+    if(
+    (
+      cos2t = 
+        1 - 
+        nnt * 
+        nnt * 
+        (
+          1 - 
+          ddn * ddn
+        )
+    ) < 0) {
+      struct vector3 temp_1 = hit_object.emission;
+      struct vector3 temp_2 = f;
+      struct vector3 temp_rad = radiance(
+        reflection_ray,
+        depth,
+        xi,
+        spheres,
+        1
+      );
+
+      VECTOR3_MATH_ASSIGN(temp_2, temp_rad, *=)
+
+      VECTOR3_MATH_ASSIGN(temp_1, temp_2, +=)
+      return temp_1;
+    }
+
+    // (r.d * nnt - n * ((into?1:-1)*(ddn*nnt+sqrt(cost)))).norm();
+    temp = (
+      (
+        into
+          ? 1
+          : -1
+      ) *
+
+      (
+        ddn *
+        nnt + 
+        sqrt(cos2t)
+      )
+    );
+
+    temp_0 = ray.direction;
+    VECTOR3_MATH_ASSIGN(temp_0, vector3_create(nnt, nnt, nnt), *=)
+    struct vector3 temp_1 = n;
+    VECTOR3_MATH_ASSIGN(
+      temp_1, 
+      vector3_create(temp, temp, temp), 
+      *=
+    )
+
+    VECTOR3_MATH_ASSIGN(temp_0, temp_1, -=)
+    struct vector3 tdir = vector3_normalize(temp_0);
+    double a = nt - nc;
+    double b = nt + nc;
+    double R0 = a * a / (b * b);
+    double c = 1 - (
+      into
+        ? -ddn
+        : vector3_dot(tdir, n)
+    );
+
+    double Re = 
+      R0 + 
+      (
+        1 - 
+        R0
+      ) *
+
+      c * c * c * c * c;
+
+    double Tr = 1 - Re;
+    double P = .25 + .5 * Re;
+    double RP = Re / P;
+    double TP = Tr / (1 - P);
+    temp_0 = hit_object.emission;
+    temp_1 = f;
+    struct vector3 temp_2 = radiance(
+      reflection_ray, 
+      depth, 
+      xi, 
+      spheres, 
+      1
+    );
+
+    VECTOR3_MATH_ASSIGN(temp_2, vector3_create(RP, RP, RP), *=)
+    struct vector3 temp_3 = radiance(
+      ray_create(x, tdir), 
+      depth, 
+      xi,
+      spheres,
+      1
+    );
+
+    VECTOR3_MATH_ASSIGN(temp_3, vector3_create(TP, TP, TP), *=)
+    struct vector3 temp_4 = radiance(
+      reflection_ray, 
+      depth, 
+      xi,
+      spheres,
+      1
+    );
+
+    VECTOR3_MATH_ASSIGN(temp_4, vector3_create(Re, Re, Re), *=)
+    struct vector3 temp_rad = radiance(
+      ray_create(x, tdir),
+      depth,
+      xi,
+      spheres,
+      1
+    );
+
+    VECTOR3_MATH_ASSIGN(temp_4, temp_rad, +=)
+
+    VECTOR3_MATH_ASSIGN(temp_4, vector3_create(Tr, Tr, Tr), *=)
+    struct vector3 temp_5 = 
+      depth > 2
+          ? (
+            erand48(xi) < P
+              ? temp_2
+              : temp_3
+          )
+
+          : temp_4;
+
+    VECTOR3_MATH_ASSIGN(temp_1, temp_5, *=)
+    VECTOR3_MATH_ASSIGN(temp_0, temp_1, +=)
+    return temp_0;
   }
 }
 
