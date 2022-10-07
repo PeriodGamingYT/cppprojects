@@ -160,12 +160,11 @@ int main() {
 	ppmInit(
 		1920,
 		1080,
-		// iterations
-		255
+	  iterations
 	);
 
   points = (deci*)malloc(sizeof(deci*) * iterations * 2);
-  int samples = imageWidth * imageHeight * 255;
+  int samples = imageWidth * imageHeight * 10;
   for(int i = 0; i < samples; i++) {
     complex sample = {
       .r = uniform_distribution(-2, 2),
@@ -196,7 +195,7 @@ int main() {
     }
   }
 
-	// ppmAddSignature();
+	ppmAddSignature();
 	for(int y = 0; y < imageHeight; y++) {
 		for(int x = 0; x < imageWidth; x++) {
 			ppmAddPixel(ppmImage[(y * imageWidth) + x]);
