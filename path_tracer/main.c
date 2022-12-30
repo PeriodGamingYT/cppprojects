@@ -1,3 +1,9 @@
+// NOTE: This code doesn't work.
+//       To a smaller version that actually does work,
+//       see: https://github.com/PeriodGamingYT/nray.
+//       Please note that you will need SDL2 for nray
+//       to work.
+
 #define WIDTH_AND_HEIGHT 100, 100
 #define FILE_START "P6 100 100 255\n"
 #define M_PI 3.1415926535
