@@ -14,7 +14,7 @@ public:
     pair<int, int> vscells;
     pair<int, int> scroll;
     pair<int, int> cursor;
-    vector<pair<int, int>> sel;
+    vector<pair<int, int> > sel;
     map<pair<int, int>, Cell> cells;
     pair<int, int> getcsize(pair<int, int> cords) {
         pair<int, int> ans = cs[cords];
@@ -62,7 +62,7 @@ public:
         }
     }
 private:
-    map<pair<int, int>, pair<int, int>> cs;
+    map<pair<int, int>, pair<int, int> > cs;
 };
 
 // Fine tuned to fit 80x24.
